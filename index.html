@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quote of the Day</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", sans-serif; }
+    body { margin: 0; padding: 24px; display: grid; place-items: center; min-height: 100dvh; background: #fafafa; }
+    .card { max-width: 48rem; background: white; padding: 24px 28px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+    blockquote { margin: 0 0 10px; font-size: 1.25rem; line-height: 1.5; }
+    cite { display: block; opacity: .7; text-align: right; margin-top: 8px; }
+    .muted { opacity: .6; font-size: .875rem; margin-top: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <blockquote id="text">Loading…</blockquote>
+    <cite id="author"></cite>
+    <div class="muted" id="date"></div>
+  </div>
+
+  <script>
+    // Change this path if you host quotes.json elsewhere:
+    const QUOTES_URL = "quotes.json";
+
+    // Deterministic "random" pick for a given date:
+    function pickIndexForDate(len, dateStr) {
+      // YYYY-MM-DD -> day count since Unix epoch -> modulo list length
+      const [y,m,d] = dateStr.split("-").map(Number);
+      const utcMidnight = Date.UTC(y, m-1, d);
+      const dayNumber = Math.floor(utcMidnight / 86400000);
+      return ((dayNumber % len) + len) % len;
+    }
+
+    // Optionally override date for testing with ?date=YYYY-MM-DD
+    function getTodayISO() {
+      const params = new URLSearchParams(location.search);
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (params.has("date")) return params.get("date");
+      // Force America/Chicago if you prefer:
+      // return new Date().toLocaleString("en-CA", { timeZone: "America/Chicago", year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\//g,"-");
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,"0");
+      const dd = String(d.getDate()).padStart(2,"0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    async function main() {
+      const today = getTodayISO();
+      document.getElementById("date").textContent = today;
+
+      let quotes = [];
+      try {
+        const res = await fetch(QUOTES_URL, { cache: "no-store" });
+        quotes = await res.json();
+      } catch (e) {
+        console.error("Failed to load quotes.json", e);
+      }
+
+      if (!Array.isArray(quotes) || quotes.length === 0) {
+        document.getElementById("text").textContent = "No quotes available.";
+        return;
+      }
+
+      const idx = pickIndexForDate(quotes.length, today);
+      const q = quotes[idx];
+
+      const text = (q.text || q.quote || "").trim();
+      const author = (q.author || q.attribution || "").trim();
+
+      document.getElementById("text").textContent = `“${text}”`;
+      document.getElementById("author").textContent = author ? `— ${author}` : "";
+      document.title = text ? "Quote of the Day" : document.title;
+    }
+
+    main();
+  </script>
+</body>
+</html>
